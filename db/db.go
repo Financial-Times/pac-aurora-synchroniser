@@ -8,12 +8,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func New(dbUrl string, maxConnections int) (*sql.DB, error) {
-	i := strings.Index(dbUrl, ":")
-	j := strings.Index(dbUrl, "@")
-	log.Infof("Connecting to %s:********@%s", dbUrl[:i], dbUrl[j+1:])
+func New(dbURL string, maxConnections int) (*sql.DB, error) {
+	i := strings.Index(dbURL, ":")
+	if i == -1 {
+		log.Infof("Connecting to %s", dbURL)
+	} else {
+		j := strings.Index(dbURL, "@")
+		log.Infof("Connecting to %s:********@%s", dbURL[:i], dbURL[j+1:])
+	}
 
-	db, err := sql.Open("mysql", dbUrl)
+	db, err := sql.Open("mysql", dbURL)
 
 	if err == nil {
 		err = db.Ping() // force a meaningful connection check

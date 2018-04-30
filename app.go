@@ -43,7 +43,7 @@ func main() {
 
 		err = db.Sync(sourceDB, targetDB)
 		if err != nil {
-			log.WithError(err).Fatal("error in synchronising the two databased")
+			log.WithError(err).Fatal("error in synchronising the two databases")
 		}
 	}
 
