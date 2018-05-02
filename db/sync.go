@@ -10,6 +10,7 @@ import (
 
 const lastModifiedField = "last_modified"
 
+//TODO improve logging
 func Sync(sourceDB, targetDB *sql.DB) error {
 	tables, err := getTablesWithLastModifiedFrom(sourceDB)
 	if err != nil {
@@ -111,7 +112,7 @@ func syncTable(table string, sourceDB, targetDB *sql.DB) error {
 		}
 
 		if len(targetRow) == 0 || strings.Compare(string(sourceRow[lastModifiedField].([]uint8)), string(targetRow[lastModifiedField].([]uint8))) > 0 {
-			log.Info(string(sourceRow["uuid"].([]uint8)))
+			// TODO Fix this log line log.Info(string(sourceRow["uuid"].([]uint8)))
 			err := copySourceRowToTargetRow(table, targetDB, sourceRow)
 			if err != nil {
 				return err
