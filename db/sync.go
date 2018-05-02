@@ -10,16 +10,17 @@ import (
 
 const lastModifiedField = "last_modified"
 
-//TODO improve logging
 func Sync(sourceDB, targetDB *sql.DB) error {
 	tables, err := getTablesWithLastModifiedFrom(sourceDB)
 	if err != nil {
+		log.WithError(err).Error("Error in getting list of tables with last_modified field from the source DB")
 		return err
 	}
 
 	for _, table := range tables {
 		err := syncTable(table, sourceDB, targetDB)
 		if err != nil {
+			log.WithError(err).WithField("table", table).Error("Error in synchronising table")
 			return err
 		}
 	}
@@ -34,6 +35,7 @@ func getTablesWithLastModifiedFrom(sourceDB *sql.DB) ([]string, error) {
 	rows, err := sourceDB.Query("SHOW TABLES")
 
 	if err != nil {
+		log.WithError(err).Error("Error in getting list of tables in the source DB")
 		return []string{}, err
 	}
 	defer rows.Close()
@@ -41,10 +43,12 @@ func getTablesWithLastModifiedFrom(sourceDB *sql.DB) ([]string, error) {
 	for rows.Next() {
 		var table string
 		if err := rows.Scan(&table); err != nil {
+			log.WithError(err).Error("Error in getting list of tables in the source DB")
 			return []string{}, err
 		}
 		hasLastModifiedField, err := checkLastModifiedField(table, sourceDB)
 		if err != nil {
+			log.WithError(err).WithField("table", table).Error("Error in checking last_modified field in source DB")
 			return []string{}, err
 		}
 		if hasLastModifiedField {
@@ -75,28 +79,31 @@ func syncTable(table string, sourceDB, targetDB *sql.DB) error {
 
 	primaryKeyFields, err := getPrimaryKeyFields(table, sourceDB)
 	if err != nil {
+		log.WithError(err).WithField("table", table).Error("Error in getting primary Key Fields from table in the source DB")
 		return err
 	}
 
 	sourceRows, err := sourceDB.Query("SELECT * FROM " + table + ";")
 	if err != nil {
+		log.WithError(err).WithField("table", table).Error("Error in getting rows in the source DB")
 		return err
 	}
 	defer sourceRows.Close()
 
 	columns, err := sourceRows.Columns()
 	if err != nil {
+		log.WithError(err).WithField("table", table).Error("Error in getting columns in the source DB")
 		return err
 	}
 	sourceRowValues := make([]interface{}, len(columns))
 	sourceRowValuesPtrs := make([]interface{}, len(columns))
 	for i := 0; i < len(columns); i++ {
-
 		sourceRowValuesPtrs[i] = &sourceRowValues[i]
 	}
 
 	for sourceRows.Next() {
 		if err := sourceRows.Scan(sourceRowValuesPtrs...); err != nil {
+			log.WithError(err).WithField("table", table).Error("Error in scanning row in the source DB")
 			return err
 		}
 
@@ -108,13 +115,20 @@ func syncTable(table string, sourceDB, targetDB *sql.DB) error {
 
 		targetRow, err := getSameTargetRow(table, targetDB, sourceRow, primaryKeyFields)
 		if err != nil {
+			log.WithError(err).WithField("table", table).WithField("row", sourceRow).Error("Error in getting target DB row that matches source DB row")
 			return err
 		}
 
 		if len(targetRow) == 0 || strings.Compare(string(sourceRow[lastModifiedField].([]uint8)), string(targetRow[lastModifiedField].([]uint8))) > 0 {
-			// TODO Fix this log line log.Info(string(sourceRow["uuid"].([]uint8)))
+			primaryKeyValues := make(map[string]interface{})
+			for _, primaryKeyField := range primaryKeyFields {
+				primaryKeyValues[primaryKeyField] = string(sourceRow[primaryKeyField].([]uint8))
+			}
+			log.WithFields(primaryKeyValues).WithField("table", table).Info("Moving row to target DB...")
+
 			err := copySourceRowToTargetRow(table, targetDB, sourceRow)
 			if err != nil {
+				log.WithError(err).WithFields(primaryKeyValues).WithField("table", table).Error("Error in moving row to target DB")
 				return err
 			}
 		}
