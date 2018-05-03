@@ -4,9 +4,6 @@ workflows:
   build-docker-image:
     jobs:
       - build
-      - dockerfile:
-          requires:
-            - build
 jobs:
   build:
     working_directory: /go/src/github.com/Financial-Times/pac-aurora-synchroniser
