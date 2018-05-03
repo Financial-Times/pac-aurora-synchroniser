@@ -1,0 +1,59 @@
+version: 2
+workflows:
+  version: 2
+  build-docker-image:
+    jobs:
+      - build
+      - dockerfile:
+          requires:
+            - build
+jobs:
+  build:
+    working_directory: /go/src/github.com/Financial-Times/pac-aurora-synchroniser
+    docker:
+      - image: golang:1.10
+        environment:
+          GOPATH: /go
+          CIRCLE_TEST_REPORTS: /tmp/test-results
+          CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
+          SOURCE_DB_TEST_URL: "root:password@tcp(source-db:3306)/pac"
+          TARGET_DB_TEST_URL: "root:password@tcp(target-db:3306)/pac"
+      - image: mysql:5.6
+        name: "source-db"
+        environment:
+          MYSQL_ROOT_PASSWORD: "password"
+          MYSQL_DATABASE: "pac"
+      - image: mysql:5.6
+        name: "target-db"
+        environment:
+          MYSQL_ROOT_PASSWORD: "password"
+          MYSQL_DATABASE: "pac"
+    steps:
+      - checkout
+      - run:
+          name: External Dependencies
+          command: |
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            go get -u github.com/mattn/goveralls
+            go get -u github.com/jstemmer/go-junit-report
+      - run:
+          name: Test Results
+          command: |
+            mkdir -p ${CIRCLE_TEST_REPORTS}
+            mkdir -p ${CIRCLE_COVERAGE_REPORT}
+      - run:
+          name: Importing libraries
+          command: dep ensure -v -vendor-only
+      - run:
+          name: Go Build
+          command: go build -v
+      - run:
+          name: Run Tests
+          command: |
+            go test -race -v ./... | /go/bin/go-junit-report > ${CIRCLE_TEST_REPORTS}/main.xml
+            go test -race -cover -coverprofile=$CIRCLE_COVERAGE_REPORT/coverage.out ./...
+      - run:
+          name: Upload Coverage
+          command: /go/bin/goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+      - store_test_results:
+          path: /tmp/test-results
