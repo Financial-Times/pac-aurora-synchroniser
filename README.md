@@ -30,7 +30,7 @@ Download the source code, dependencies and test dependencies:
 
 2. Run the binary (using the `help` flag to see the available optional arguments):
 
-        $GOPATH/bin/{{ cookiecutter.service_name }} [--help]
+        $GOPATH/bin/pac-aurora-synchroniser [--help]
 
         Options:
 
